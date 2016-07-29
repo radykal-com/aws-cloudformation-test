@@ -45,7 +45,7 @@ The stack name for each template is automatically set with the following pattern
 ### Special parameters
 There are some special parameters that act different if present in a template:
 - _S3LogsBucketName_ and _S3LogsBucketCreate_: These 2 parameters wont be prompt as inputs for the script. The script will automatically pass the name _logs-application-environment_ (logs-hello-world-development for the previous example) to the template and check if the bucket already exists to pass the flag accordly.
-- _DefaultVPCSecurityGroupId_: If found, the script will fill the parameter with the default security-group Id of the default VCPC.
+- _DefaultVPCSecurityGroupId_: If found, the script will fill the parameter with the default security-group Id of the default VPC.
 
 ### Predefined tags
 The following tags will be created automatically with each stack:
