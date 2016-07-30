@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion" : "2010-09-09",
-  "Description" : "Creates a Cloudformation stack to run a hello-world application, running Windows instances behind an ELB",
+  "Description" : "Run a hello-world application, running Windows instances in an auto-scaling group behind an ELB",
   "Parameters" : {
      "ScalingNotificationEmail": {
       "Description": "Email address to notify if there are any scaling operations",
