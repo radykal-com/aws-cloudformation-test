@@ -53,7 +53,17 @@ print("Creating stack with name: " + stackName)
 cfClient.create_stack(
     StackName=stackName,
     TemplateBody=templateContent,
-    Parameters=parameters
+    Parameters=parameters,
+    Tags=[
+        {
+            'Key': 'application',
+            'Value': application
+        },
+        {
+            'Key': 'environment',
+            'Value': environment
+        }
+    ]
 )
 print("Stack creation running...waiting for completion")
 waiter = cfClient.get_waiter('stack_create_complete')

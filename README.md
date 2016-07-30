@@ -49,5 +49,5 @@ There are some special parameters that act different if present in a template:
 
 ### Predefined tags
 The following tags will be created automatically with each stack:
-- app: the application name (template file name)
-- env: environment (environment called when creating the stack)
+- application: the application name (template file name)
+- environment: environment (environment called when creating the stack)
