@@ -1,5 +1,3 @@
-***IMPORTANT NOTE: The script is not finished, and it does not work yet. The information in this README include features not implemented. Currently the script allows you to validate the template when you try to create the stack and prompts you for the required parameters***
-
 # Python script to launch AWS Cloudformation templates
 This script allows to create cloudformation stacks easily, just providing the template file and passing required arguments when calling the script.
 
