@@ -115,17 +115,12 @@
         "AutoScalingRollingUpdate": {
           "MinInstancesInService": "1",
           "MaxBatchSize": "1",
-          "PauseTime": "PT15M",
-          "WaitOnResourceSignals": "true"
+          "PauseTime": "PT15M"
         }
       }
     },
     "LaunchConfig": {
       "Type": "AWS::AutoScaling::LaunchConfiguration",
-      "Metadata": {
-        "Comment": "Install a hello-world application",
-        "AWS::CloudFormation::Init": {}
-      },
       "Properties": {
         "KeyName": {
           "Ref": "KeyName"
@@ -136,7 +131,66 @@
             "Ref": "InstanceSecurityGroup"
           }
         ],
-        "InstanceType": "t2.micro"
+        "InstanceType": "t2.micro",
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "<powershell>\n",
+          "Import-Module NetSecurity\n",
+          "New-NetFirewallRule",
+          " -Name tcp-80-8080 ",
+          " -DisplayName TCP-80-8080",
+          " -Protocol TCP -Enabled True",
+          " -Profile Any -Action Allow -Direction Inbound -LocalPort 80,8080\n",
+          "cfn-init.exe -v -s ",
+          { "Ref" : "AWS::StackName" },
+          " -r LaunchConfig",
+          " --region ", { "Ref" : "AWS::Region" },
+          " --configset default\n",
+          "</powershell>\n"
+        ]]}}
+      },
+      "Metadata": {
+        "Comment": "Run hello-world application",
+        "AWS::CloudFormation::Init": {
+          "configSets": {
+            "default": ["install","app"]
+          },
+          "install": {
+            "packages": {
+              "msi" : {
+                "nodejs" : "https://nodejs.org/dist/v4.4.7/node-v4.4.7-x64.msi"
+              }
+            },
+            "files": {
+              "C:\\install-source\\git.exe" : {
+                "source" : "https://github.com/git-for-windows/git/releases/download/v2.9.2.windows.1/Git-2.9.2-64-bit.exe"
+              }
+            },
+            "commands": {
+              "1-gitinstall": {
+                "command": "C:\\install-source\\git.exe  /SILENT /COMPONENTS=\"icons,ext\\reg\\shellhere,assoc,assoc_sh\""
+              },
+              "99-reboot": {
+                "command": "shutdown -t 10 -r -f",
+                "waitAfterCompletion": "forever"
+              }
+            }
+          },
+          "app": {
+            "sources": {
+              "C:\\app": "https://github.com/GoogleCloudPlatform/nodejs-getting-started/archive/master.zip"
+            },
+            "commands": {
+              "1-npminstall": {
+                "cwd": "C:\\app\\nodejs-getting-started-master\\1-hello-world",
+                "command": "npm install"
+              },
+              "2-npmstart": {
+                "cwd": "C:\\app\\nodejs-getting-started-master\\1-hello-world",
+                "command": "npm start"
+              }
+            }
+          }
+        }
       }
     },
     "WebServerScaleUpPolicy": {
@@ -223,15 +277,15 @@
         "Listeners": [
           {
             "LoadBalancerPort": "80",
-            "InstancePort": "80",
+            "InstancePort": "8080",
             "Protocol": "HTTP"
           }
         ],
         "HealthCheck": {
-          "Target": "HTTP:80/",
-          "HealthyThreshold": "3",
-          "UnhealthyThreshold": "5",
-          "Interval": "30",
+          "Target": "HTTP:8080/",
+          "HealthyThreshold": "2",
+          "UnhealthyThreshold": "2",
+          "Interval": "15",
           "Timeout": "5"
         }
       }
@@ -256,14 +310,6 @@
                 "ElasticLoadBalancer",
                 "SourceSecurityGroup.GroupName"
               ]
-            }
-          },
-          {
-            "IpProtocol": "tcp",
-            "FromPort": "80",
-            "ToPort": "80",
-            "CidrIp": {
-              "Ref": "PrivateAdminCidrIp"
             }
           },
           {
