@@ -35,6 +35,8 @@ The script will show you the required parameters if you provide at least the app
 
 _python create-stack.py_ --Application hello-world --Environment development
 
+To add more stacks just put the cloudformation template files inside templates directory with json extension. To call the template just pass the file name of the template as application (without extension).
+
 ## Useful information
 
 ### Stack Name
