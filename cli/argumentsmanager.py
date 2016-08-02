@@ -24,6 +24,13 @@ class ArgumentsManager(object):
                                  required=True,
                                  help='AWS Environment, allowed values: development, staging, production')
 
+        self.Parser.add_argument('--Debug',
+                                 metavar='false',
+                                 default='false',
+                                 choices=['true', 'false'],
+                                 required=False,
+                                 help='Disable stack rollback on failure')
+
     def add_parameters_as_arguments(self, parameters):
         for parameter in parameters:
             param_name = parameter.get('ParameterKey', None)

@@ -73,5 +73,6 @@ autoParams = {
 # This parameters wont be passed to the cloudformation stack creation
 excludeParams = [
     'Application',
-    'Environment'
+    'Environment',
+    'Debug'
 ]

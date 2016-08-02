@@ -49,11 +49,13 @@ autoParams = parameters.set_auto_params_values(
 argParams = parameters.parse_arguments_as_parameters(args)
 parameters = autoParams+argParams
 
+debug = True if args.get('Debug') == 'true' else False
 print("Creating stack with name: " + stackName)
 cfClient.create_stack(
     StackName=stackName,
     TemplateBody=templateContent,
     Parameters=parameters,
+    DisableRollback=debug,
     Tags=[
         {
             'Key': 'application',
@@ -68,4 +70,4 @@ cfClient.create_stack(
 print("Stack creation running...waiting for completion")
 waiter = cfClient.get_waiter('stack_create_complete')
 waiter.wait(StackName=stackName)
-print("Stack creation finished, checking stack status")
+print("Stack created")
