@@ -1,5 +1,8 @@
 
 
+DefaultVPCId = None
+
+
 def parse_arguments_as_parameters(arguments):
     parameters = []
     for name, value in arguments.items():
@@ -35,13 +38,16 @@ def get_default_vpc_security_group(application, environment, aws_session):
 
 
 def get_default_vpc_id(application, environment, aws_session):
-    ec2_resource = aws_session.resource('ec2')
-    ec2_client = ec2_resource.meta.client
-    res = ec2_client.describe_vpcs()
-    vpcs = res.get('Vpcs')
-    for vpc in vpcs:
-        if vpc.get('IsDefault'):
-            return vpc.get('VpcId')
+    global DefaultVPCId
+    if DefaultVPCId is None:
+        ec2_resource = aws_session.resource('ec2')
+        ec2_client = ec2_resource.meta.client
+        res = ec2_client.describe_vpcs()
+        vpcs = res.get('Vpcs')
+        for vpc in vpcs:
+            if vpc.get('IsDefault'):
+                DefaultVPCId = vpc.get('VpcId')
+    return DefaultVPCId
 
 
 def get_default_security_group(ec2_client, default_vpc_id):
@@ -50,6 +56,20 @@ def get_default_security_group(ec2_client, default_vpc_id):
     for security_group in security_groups:
         if security_group.get('VpcId') == default_vpc_id:
             return security_group.get('GroupId')
+
+
+def get_default_route_table_id(application, environment, aws_session):
+    vpcId = get_default_vpc_id(application, environment, aws_session)
+    ec2_resource = aws_session.resource('ec2')
+    ec2_client = ec2_resource.meta.client
+    res = ec2_client.describe_route_tables()
+    route_tables = res.get('RouteTables')
+    for rt in route_tables:
+        if rt.get('VpcId') == vpcId:
+            associations = rt.get('Associations')
+            for assoc in associations:
+                if assoc.get('Main') == True:
+                    return rt.get('RouteTableId')
 
 
 def get_s3_logs_bucket_name(application, environment, aws_session):
@@ -65,6 +85,7 @@ def create_s3_logs_bucket(application, environment, aws_session):
 # Dictionary must be declared after the functions declarations in order to work
 autoParams = {
     'DefaultVPCId': get_default_vpc_id,
+    'DefaultRouteTableId': get_default_route_table_id,
     'DefaultVPCSecurityGroupId': get_default_vpc_security_group,
     'S3LogsBucketName': get_s3_logs_bucket_name,
     'S3LogsBucketCreate': create_s3_logs_bucket

@@ -44,7 +44,8 @@ The stack name for each template is automatically set with the following pattern
 There are some special parameters that act different if present in a template:
 - _S3LogsBucketName_ and _S3LogsBucketCreate_: These 2 parameters wont be prompt as inputs for the script. The script will automatically pass the name _logs-application-environment_ (logs-hello-world-development for the previous example) to the template and check if the bucket already exists to pass the flag accordly.
 - _DefaultVPCId_: Automatically filled with the default VPC Id.
-- _DefaultVPCSecurityGroupId_: If found, the script will fill the parameter with the default security-group Id of the default VPC.
+- _DefaultRouteTableId_: Automatically filled with the Main route-table Id assigned to the Default VPC.
+- _DefaultVPCSecurityGroupId_: Automaticalled filled with the default security-group Id of the default VPC.
 
 ### Troubleshooting
 Run the script with _--Debug true_ to disable stack rollback on failure.
@@ -55,5 +56,4 @@ The following tags will be created automatically with each stack:
 - environment: environment (environment called when creating the stack)
 
 ## Usage example (hello-world)
-python create-stack.py --Application hello-world --Environment development --Debug False --KeyName aKeyPairName --ScalingNotificationEmail notify-me@example.com --RDPAllowCidrIp 8.8.8.8/24 --PrivateAdminCidrIp 8.8.4.4/32
-
+python create-stack.py --Application hello-world --Environment development --Debug False --InstanceType t2.micro --KeyName aKeyPairName --ScalingNotificationEmail notify-me@example.com --RDPAllowCidrIp 8.8.8.8/24 --PrivateAdminCidrIp 8.8.4.4/32
