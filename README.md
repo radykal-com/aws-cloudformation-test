@@ -50,3 +50,6 @@ There are some special parameters that act different if present in a template:
 The following tags will be created automatically with each stack:
 - application: the application name (template file name)
 - environment: environment (environment called when creating the stack)
+
+## Usage example (hello-world)
+py create-stack.py --Application hello-world --Environment development --KeyName aKeyPairName --ScalingNotificationEmail notify-me@example.com --RDPAllowCidrIp 8.8.8.8/24 --PrivateAdminCidrIp 8.8.4.4/32
