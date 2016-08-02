@@ -31,6 +31,10 @@
       "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
       "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
     },
+    "DefaultVPCId": {
+      "Description": "Default VPC Id",
+      "Type": "String"
+    },
     "DefaultVPCSecurityGroupId": {
       "Description": "Security Group Id of default VPC",
       "Type": "String"
@@ -49,20 +53,54 @@
   "Conditions" : {
     "S3LogsBucketCreation" : {"Fn::Equals" : [{"Ref" : "S3LogsBucketCreate"}, "Yes"]}
   },
-  "Mappings" : {
-
-  },
   "Resources" : {
     "S3LogsBucket" : {
       "Type" : "AWS::S3::Bucket",
       "Condition" : "S3LogsBucketCreation",
+      "DeletionPolicy" : "Retain",
       "Properties" : {
         "AccessControl" : "Private",
         "BucketName" : {
           "Ref": "S3LogsBucketName"
         }
-      },
-      "DeletionPolicy" : "Retain"
+      }
+    },
+    "S3Endpoint" : {
+      "Type" : "AWS::EC2::VPCEndpoint",
+      "Properties" : {
+        "PolicyDocument" : {
+          "Version":"2012-10-17",
+          "Statement":[{
+            "Effect":"Allow",
+            "Principal": "*",
+            "Action":["s3:PutObject"],
+            "Resource":[ { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "S3LogsBucketName" }, "/*" ] ] } ]
+          }]
+        },
+        "ServiceName" : { "Fn::Join": [ "", [ "com.amazonaws.", { "Ref": "AWS::Region" }, ".s3" ] ] },
+        "VpcId" : { "Ref" : "DefaultVPCId" }
+      }
+    },
+    "S3LogsBucketPolicy" : {
+      "Type" : "AWS::S3::BucketPolicy",
+      "Condition" : "S3LogsBucketCreation",
+      "DeletionPolicy" : "Retain",
+      "Properties" : {
+        "Bucket" : {"Ref" : "S3LogsBucket"},
+        "PolicyDocument": {
+          "Statement":[{
+            "Action":["s3:PutObject"],
+            "Effect":"Allow",
+            "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "S3LogsBucketName" } , "/*" ]]},
+            "Principal":"*",
+            "Condition": {
+            "StringNotEquals": {
+              "aws:sourceVpc": { "Ref" : "DefaultVPCId" }
+            }
+          }
+          }]
+        }
+      }
     },
     "NotificationTopic": {
       "Type": "AWS::SNS::Topic",
@@ -81,12 +119,12 @@
       "Type": "AWS::AutoScaling::AutoScalingGroup",
       "Properties": {
         "AvailabilityZones": {
-          "Fn::GetAZs": "eu-west-1"
+          "Fn::GetAZs": { "Ref": "AWS::Region" }
         },
         "LaunchConfigurationName": {
           "Ref": "LaunchConfig"
         },
-        "MinSize": "1",
+        "MinSize": "2",
         "MaxSize": "6",
         "LoadBalancerNames": [
           {
@@ -107,14 +145,15 @@
       },
       "CreationPolicy": {
         "ResourceSignal": {
-          "Timeout": "PT15M",
-          "Count": "1"
+          "Timeout": "PT30M",
+          "Count": "2"
         }
       },
       "UpdatePolicy": {
         "AutoScalingRollingUpdate": {
-          "MinInstancesInService": "1",
+          "MinInstancesInService": "2",
           "MaxBatchSize": "1",
+          "WaitOnResourceSignals": "true",
           "PauseTime": "PT15M"
         }
       }
@@ -152,22 +191,61 @@
         "Comment": "Run hello-world application",
         "AWS::CloudFormation::Init": {
           "configSets": {
-            "default": ["install","app"]
+            "default": ["pre-req", "app-run", "post-process"]
           },
-          "install": {
+          "pre-req": {
             "packages": {
               "msi" : {
-                "nodejs" : "https://nodejs.org/dist/v4.4.7/node-v4.4.7-x64.msi"
+                "nodejs" : "https://nodejs.org/dist/v4.4.7/node-v4.4.7-x64.msi",
+                "aws-cli" : "https://s3.amazonaws.com/aws-cli/AWSCLI64.msi"
               }
             },
             "files": {
               "C:\\install-source\\git.exe" : {
                 "source" : "https://github.com/git-for-windows/git/releases/download/v2.9.2.windows.1/Git-2.9.2-64-bit.exe"
+              },
+              "C:\\install-source\\cfn-signal.ps1": {
+                "content": { "Fn::Join" : ["", [
+                  "cfn-signal.exe -e 0",
+                  " --stack ", { "Ref": "AWS::StackId" },
+                  " --resource WebServerGroup",
+                  " --region ", { "Ref" : "AWS::Region" }
+                ]]}
+              },
+              "C:\\install-source\\copy-logs.ps1": {
+                "content": { "Fn::Join" : ["", [
+                  "$instanceId=(New-Object System.Net.WebClient).DownloadString(\"http://169.254.169.254/latest/meta-data/instance-id\")\n",
+                  "aws --no-sign-request s3",
+                  " cp --recursive",
+                  " C:\\cfn\\log",
+                  " s3://", { "Ref": "S3LogsBucketName" }, "/$instanceId/"
+                ]]}
+              },
+              "C:\\install-source\\create-scheduled-task-copy-logs.ps1": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "$TaskName = \"Copy Logs to s3\"\n",
+                      "$TaskDescr = \"Run a powershell script to copy logs to s3 using aws-cli\"\n",
+                      "$TaskCommand = \"C:\\windows\\system32\\WindowsPowerShell\\v1.0\\powershell.exe\"\n",
+                      "$TaskScript = \"C:\\install-source\\copy-logs.ps1\"\n",
+                      "$TaskArg = \"-WindowStyle Hidden -NonInteractive -Executionpolicy RemoteSigned -file $TaskScript\"\n",
+                      "$TaskAction = New-ScheduledTaskAction -Execute \"$TaskCommand\" -Argument \"$TaskArg\"\n",
+                      "$TaskTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([System.TimeSpan]::MaxValue)\n",
+                      "Register-ScheduledTask -Action $TaskAction -Trigger $TaskTrigger -TaskName \"$TaskName\" -User \"System\" -RunLevel Highest"
+                    ]
+                  ]
+                }
               }
+            },
+            "sources": {
+              "C:\\install-source": "https://nssm.cc/release/nssm-2.24.zip"
             },
             "commands": {
               "1-gitinstall": {
-                "command": "C:\\install-source\\git.exe  /SILENT /COMPONENTS=\"icons,ext\\reg\\shellhere,assoc,assoc_sh\""
+                "command": "C:\\install-source\\git.exe  /SILENT /COMPONENTS=\"icons,ext\\reg\\shellhere,assoc,assoc_sh\"",
+                "waitAfterCompletion": "0"
               },
               "99-reboot": {
                 "command": "shutdown -t 10 -r -f",
@@ -175,18 +253,43 @@
               }
             }
           },
-          "app": {
+          "app-run": {
             "sources": {
-              "C:\\app": "https://github.com/GoogleCloudPlatform/nodejs-getting-started/archive/master.zip"
+              "C:\\app": "https://github.com/radykal-com/nodejs-getting-started/archive/master.zip"
             },
             "commands": {
               "1-npminstall": {
                 "cwd": "C:\\app\\nodejs-getting-started-master\\1-hello-world",
-                "command": "npm install"
+                "command": "npm install",
+                "waitAfterCompletion": "0"
               },
-              "2-npmstart": {
-                "cwd": "C:\\app\\nodejs-getting-started-master\\1-hello-world",
-                "command": "npm start"
+              "2-service-setup": {
+                "cwd": "C:\\install-source\\nssm-2.24\\win64",
+                "command": "nssm.exe install hello-world node.exe C:\\app\\nodejs-getting-started-master\\1-hello-world\\app.js",
+                "waitAfterCompletion": "0"
+              }
+            },
+            "services": {
+              "windows" : {
+                "hello-world" : {
+                  "enabled" : "true",
+                  "ensureRunning" : "true",
+                  "sources" : ["C:\\app\\nodejs-getting-started-master\\1-hello-world"]
+                }
+              }
+            }
+          },
+          "post-process": {
+            "commands": {
+              "10-schedule-task-copy-logs": {
+                "cwd": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+                "command": "powershell.exe -ExecutionPolicy RemoteSigned -Command C:\\install-source\\create-scheduled-task-copy-logs.ps1",
+                "waitAfterCompletion": "0"
+              },
+              "99-signal-ok": {
+                "cwd": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+                "command": "powershell.exe -ExecutionPolicy RemoteSigned -Command C:\\install-source\\cfn-signal.ps1",
+                "waitAfterCompletion": "0"
               }
             }
           }
@@ -222,7 +325,7 @@
         "MetricName": "CPUUtilization",
         "Namespace": "AWS/EC2",
         "Statistic": "Average",
-        "Period": "150",
+        "Period": "180",
         "EvaluationPeriods": "2",
         "Threshold": "50",
         "AlarmActions": [
@@ -271,23 +374,63 @@
       "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
       "Properties": {
         "AvailabilityZones": {
-          "Fn::GetAZs": "eu-west-1"
+          "Fn::GetAZs": { "Ref": "AWS::Region" }
         },
         "CrossZone": "false",
         "Listeners": [
           {
             "LoadBalancerPort": "80",
+            "InstancePort": "80",
+            "Protocol": "HTTP"
+          },
+          {
+            "LoadBalancerPort": "8080",
             "InstancePort": "8080",
             "Protocol": "HTTP"
           }
         ],
+        "SecurityGroups": [
+          {
+            "Fn::GetAtt" : [ "ELBSecurityGroup", "GroupId" ]
+          }
+        ],
         "HealthCheck": {
-          "Target": "HTTP:8080/",
+          "Target": "HTTP:80/",
           "HealthyThreshold": "2",
           "UnhealthyThreshold": "2",
           "Interval": "15",
           "Timeout": "5"
         }
+      }
+    },
+    "ELBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "80 public from internet, 8080 from parametrizable CidrIp and default VPC",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8080",
+            "ToPort": "8080",
+            "CidrIp": {
+              "Ref": "PrivateAdminCidrIp"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8080",
+            "ToPort": "8080",
+            "SourceSecurityGroupId": {
+              "Ref": "DefaultVPCSecurityGroupId"
+            }
+          }
+        ]
       }
     },
     "InstanceSecurityGroup": {
@@ -299,6 +442,23 @@
             "IpProtocol": "tcp",
             "FromPort": "80",
             "ToPort": "80",
+            "SourceSecurityGroupOwnerId": {
+              "Fn::GetAtt": [
+                "ElasticLoadBalancer",
+                "SourceSecurityGroup.OwnerAlias"
+              ]
+            },
+            "SourceSecurityGroupName": {
+              "Fn::GetAtt": [
+                "ElasticLoadBalancer",
+                "SourceSecurityGroup.GroupName"
+              ]
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8080",
+            "ToPort": "8080",
             "SourceSecurityGroupOwnerId": {
               "Fn::GetAtt": [
                 "ElasticLoadBalancer",

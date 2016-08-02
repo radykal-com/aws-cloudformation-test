@@ -54,5 +54,5 @@ The following tags will be created automatically with each stack:
 - environment: environment (environment called when creating the stack)
 
 ## Usage example (hello-world)
-py create-stack.py --Application hello-world --Environment development --Debug False --KeyName aKeyPairName --ScalingNotificationEmail notify-me@example.com --RDPAllowCidrIp 8.8.8.8/24 --PrivateAdminCidrIp 8.8.4.4/32
+python create-stack.py --Application hello-world --Environment development --Debug False --KeyName aKeyPairName --ScalingNotificationEmail notify-me@example.com --RDPAllowCidrIp 8.8.8.8/24 --PrivateAdminCidrIp 8.8.4.4/32
 
