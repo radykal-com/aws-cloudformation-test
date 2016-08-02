@@ -33,7 +33,7 @@ The stack has some parameters like:
 
 The script will show you the required parameters if you provide at least the application and environment such as:
 
-_py create-stack.py_ --Application hello-world --Environment development
+_python create-stack.py_ --Application hello-world --Environment development
 
 ## Useful information
 
