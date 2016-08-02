@@ -30,11 +30,13 @@ def set_auto_params_values(application, environment, parameters_names, aws_sessi
 def get_default_vpc_security_group(application, environment, aws_session):
     ec2_resource = aws_session.resource('ec2')
     ec2_client = ec2_resource.meta.client
-    default_vpc_id = get_default_vpc_id(ec2_client)
+    default_vpc_id = get_default_vpc_id(application, environment, aws_session)
     return get_default_security_group(ec2_client, default_vpc_id)
 
 
-def get_default_vpc_id(ec2_client):
+def get_default_vpc_id(application, environment, aws_session):
+    ec2_resource = aws_session.resource('ec2')
+    ec2_client = ec2_resource.meta.client
     res = ec2_client.describe_vpcs()
     vpcs = res.get('Vpcs')
     for vpc in vpcs:
@@ -62,6 +64,7 @@ def create_s3_logs_bucket(application, environment, aws_session):
 
 # Dictionary must be declared after the functions declarations in order to work
 autoParams = {
+    'DefaultVPCId': get_default_vpc_id,
     'DefaultVPCSecurityGroupId': get_default_vpc_security_group,
     'S3LogsBucketName': get_s3_logs_bucket_name,
     'S3LogsBucketCreate': create_s3_logs_bucket
