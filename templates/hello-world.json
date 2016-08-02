@@ -512,9 +512,17 @@
     }
   },
   "Outputs" : {
-    "URL" : {
+    "PublicURL" : {
       "Description" : "Application URL",
       "Value" :  { "Fn::Join" : [ "", [ "http://", { "Fn::GetAtt" : [ "ElasticLoadBalancer", "DNSName" ]}]]}
+    },
+    "PrivateURL" : {
+      "Description" : "Application Private URL",
+      "Value" :  { "Fn::Join" : [ "", [ "http://", { "Fn::GetAtt" : [ "ElasticLoadBalancer", "DNSName" ]}, ":8080"]]}
+    },
+    "S3LogsBucketName": {
+      "Description" : "Bucket name where logs are stored, separated by instances",
+      "Value": { "Ref": "S3LogsBucketName" }
     }
   }
 }
