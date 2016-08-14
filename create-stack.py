@@ -1,4 +1,6 @@
-import boto3, os, sys
+import boto3
+import os
+import sys
 import aws.stack as stack
 import aws.parameters as parameters
 from cli.argumentsmanager import ArgumentsManager
