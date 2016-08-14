@@ -28,12 +28,12 @@ try:
         print("Found template file for application: " + application)
 except:
     sys.stderr.write("Error: Unknown application (template file not found): " + application)
-    sys.exit(1)
+    sys.exit(11)
 
 stackName = stack.create_stack_name(application, environment)
 if stack.stack_exists(stackName, session):
     sys.stderr.write("Error: Stack with name " + stackName + " already exists")
-    sys.exit(1)
+    sys.exit(12)
 
 cfClient = session.client('cloudformation')
 response = cfClient.validate_template(TemplateBody=templateContent)

@@ -52,6 +52,13 @@ There are some special parameters that act different if present in a template:
 ### Troubleshooting
 Run the script with _--Debug true_ to disable stack rollback on failure.
 
+#### Error Exit Codes
+- 11: Wrong application-name, the template file could not be found
+- 12: Stack with same name already exists
+- 50: Unexpected behaviour while trying to detect S3 bucket ownership
+- 51: S3 bucket exists with the same name and you have no permissions over it
+
+
 ### Predefined tags
 The following tags will be created automatically with each stack:
 - application: the application name (template file name)
