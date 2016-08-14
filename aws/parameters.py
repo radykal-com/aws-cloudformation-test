@@ -1,4 +1,5 @@
-
+import botocore
+import sys
 
 DefaultVPCId = None
 
@@ -78,8 +79,35 @@ def get_s3_logs_bucket_name(application, environment, aws_session):
 
 def create_s3_logs_bucket(application, environment, aws_session):
     s3 = aws_session.resource('s3')
-    exists = s3.Bucket(get_s3_logs_bucket_name(application, environment, aws_session)) in s3.buckets.all()
-    return 'No' if exists else 'Yes'
+    bucket_name = get_s3_logs_bucket_name(application, environment, aws_session)
+    if check_s3_bucket_exists(s3, bucket_name):
+        print("[WARNING]: Found S3 bucket [%s] under your account." % bucket_name)
+        print("[WARNING]: Please verify the access policies manually or stack resources may not have access to it.")
+        return 'No'
+    else:
+        print("S3 bucket [%s] will be created if resource is present in the stack template" % bucket_name)
+        return 'Yes'
+
+
+def check_s3_bucket_exists(s3, bucket_name):
+    try:
+        s3.meta.client.head_bucket(Bucket=bucket_name)
+        if check_s3_bucket_ownership(s3, bucket_name):
+            return True
+        else:
+            sys.stderr.write("Could not detect %s bucket ownership." % bucket_name)
+            exit(50)
+    except botocore.exceptions.ClientError as e:
+        if e.response['ResponseMetadata']['HTTPStatusCode'] == 404:
+            return False
+        elif e.response['ResponseMetadata']['HTTPStatusCode'] == 403:
+            sys.stderr.write("S3 Bucket [%s] already exists and your account has no access to it." % bucket_name)
+            exit(51)
+
+
+def check_s3_bucket_ownership(s3, bucket_name):
+    if s3.Bucket(bucket_name) in s3.buckets.all():
+        return True
 
 
 # Dictionary must be declared after the functions declarations in order to work
